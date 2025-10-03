@@ -11,6 +11,7 @@ import type {
   HouseholdMemberRow,
 } from "@/types/db";
 import { Toast } from "@/components/Toast";
+import { setCachedHouseholdName } from "@/lib/household-cache";
 
 const WDAY: Record<number, Weekday> = {
   0: RRule.MO,
@@ -40,6 +41,17 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
   const [occurrences, setOccurrences] = useState<ChoreOccurrence[]>([]);
 
   async function load() {
+    // fetch household name first
+    const { data: hh } = await supabase
+      .from("households")
+      .select("name")
+      .eq("id", householdId)
+      .single();
+
+    if (hh?.name) {
+      setCachedHouseholdName(householdId, hh.name);
+    }
+
     // members
     const { data: m } = await supabase
       .from("household_members")
@@ -160,8 +172,6 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
       milliseconds: 0,
     });
     const rs = new RRuleSet();
-
-    // if (recurrence === "none") return []
 
     switch (recurrence) {
       case "daily":
