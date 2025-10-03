@@ -41,17 +41,28 @@ export default function SetPasswordForm({
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({ has_password: true })
-        .eq("id", user.id);
+
+    if (!user) {
+      setSaving(false);
+      setToastMsg?.("❌ No active session after setting password");
+      return;
+    }
+
+    const { error: upErr } = await supabase
+      .from("profiles")
+      .update({ has_password: true })
+      .eq("id", user.id);
+
+    if (upErr) {
+      setSaving(false);
+      setToastMsg?.(`❌ Failed to update profile: ${upErr.message}`);
+      return;
     }
 
     setSaving(false);
     setToastMsg?.("🔒 Password set");
 
-    router.refresh();
+    // ✅ don't rely on refresh alone — let parent refetch
     onDone();
   }
 
