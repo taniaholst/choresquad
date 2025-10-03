@@ -10,7 +10,7 @@ function isStrong(pw: string) {
   );
 }
 
-export default function SetPasswordForm({
+export default function SetProfileForm({
   onDone,
   setToastMsg,
 }: {
@@ -61,9 +61,9 @@ export default function SetPasswordForm({
     }
 
     setSaving(false);
-    setToastMsg?.("✅ Account set up");
+    setToastMsg?.("🎉 Profile saved");
     onDone(); // parent will reload profile
-    router.replace("/"); // move forward (can change to /households if desired)
+    router.replace("/"); // move forward (or /households if you prefer)
   }
 
   return (
@@ -74,7 +74,7 @@ export default function SetPasswordForm({
         void submit();
       }}
     >
-      <div className="text-sm">Finish setting up your account</div>
+      <div className="text-sm">Finish setting up your profile</div>
 
       <label className="text-sm font-medium">Display name</label>
       <input
@@ -101,7 +101,7 @@ export default function SetPasswordForm({
       />
 
       <button className="border rounded px-4 py-2 w-full" disabled={saving}>
-        {saving ? "Saving…" : "Save & continue"}
+        {saving ? "Saving…" : "Save profile"}
       </button>
 
       <p className="text-xs opacity-70">
