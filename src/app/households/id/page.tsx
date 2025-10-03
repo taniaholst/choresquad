@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { RRule, RRuleSet, Weekday } from "rrule";
 import { set as setTime } from "date-fns";
 import type { Chore, Profile, Recurrence } from "@/types/db";
+import { Toast } from "@/components/Toast";
 
 const WDAY: Record<number, Weekday> = {
   0: RRule.MO,
@@ -29,6 +30,7 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
   const [interval, setInterval] = useState<number>(1);
   const [notify, setNotify] = useState<number | null>(null);
   const [assignees, setAssignees] = useState<string[]>([]);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   async function load() {
     const { data: memberRows, error: mErr } = await supabase
@@ -87,7 +89,10 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!title.trim() || !user) return;
+    if (!title.trim() || !user) {
+      setToastMsg("❌ Please add a title and sign in");
+      return;
+    }
 
     const { data: inserted, error } = await supabase
       .from("chores")
@@ -104,17 +109,26 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
         created_by: user.id,
       })
       .select("*");
-    if (error || !inserted?.length) return;
-    const chore = inserted[0] as Chore;
 
+    if (error || !inserted?.length) {
+      setToastMsg(`❌ ${error?.message ?? "Failed to create chore"}`);
+      return;
+    }
+
+    const chore = inserted[0];
     if (assignees.length) {
-      await supabase
+      const { error: aErr } = await supabase
         .from("chore_assignees")
         .insert(assignees.map((uid) => ({ chore_id: chore.id, user_id: uid })));
+      if (aErr) {
+        setToastMsg(`⚠️ Chore saved, but assignment failed: ${aErr.message}`);
+      }
     }
+
     setTitle("");
     setAssignees([]);
     await load();
+    setToastMsg("🧹 Chore saved");
   }
 
   const previewDates: Date[] = useMemo(() => {
@@ -324,6 +338,24 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
           ))}
         </ul>
       </section>
+      <button
+        className="border rounded px-3 py-1 text-xs"
+        onClick={async () => {
+          try {
+            const res = await fetch("/api/backfill");
+            const json = await res.json();
+            setToastMsg(`✅ Backfilled ${json.created} occurrences`);
+            // @ts-expect-error TS2322 - `never` should never happen
+          } catch (e: never) {
+            setToastMsg(`❌ Backfill failed: ${e.message ?? e}`);
+          }
+        }}
+      >
+        Run backfill
+      </button>
+      {toastMsg && (
+        <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
+      )}
     </main>
   );
 }

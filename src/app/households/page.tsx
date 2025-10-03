@@ -24,7 +24,7 @@ export default function HouseholdsPage() {
 
   function copyInvite(code: string) {
     navigator.clipboard.writeText(code);
-    setToastMsg("✅ Invite code copied!");
+    setToastMsg("✅ Invite code copied");
   }
 
   async function createHousehold() {
@@ -34,25 +34,25 @@ export default function HouseholdsPage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      alert("Please sign in first");
+      setToastMsg("❌ Please sign in first");
       return;
     }
 
     const { data, error } = await supabase
       .from("households")
-      .insert({ name, owner_id: user.id }) // invite_code now generated server-side
+      .insert({ name, owner_id: user.id }) // invite_code generated server-side
       .select("*")
       .single();
 
     if (error) {
       console.error("Insert household failed:", error);
-      alert(error.message);
+      setToastMsg(`❌ ${error.message}`);
       return;
     }
 
-    // Clear input and show the new household immediately
     setName("");
     setHouseholds((prev) => (data ? [data, ...prev] : prev));
+    setToastMsg("🎉 Household created");
   }
 
   return (

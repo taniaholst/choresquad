@@ -1,8 +1,8 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Toast } from "@/components/Toast";
 
 export default function HomeClient() {
   const router = useRouter();
@@ -15,6 +15,7 @@ export default function HomeClient() {
   );
   const [userId, setUserId] = useState<string | null>(null);
   const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const flag = search.get("welcome");
@@ -56,10 +57,11 @@ export default function HomeClient() {
       display_name: name.trim(),
     });
     if (error) {
-      alert(error.message);
       setStatus("signedin");
+      setToastMsg(`❌ ${error.message}`);
       return;
     }
+    setToastMsg("🎉 Profile saved");
     router.push("/households");
   }
 
@@ -129,6 +131,9 @@ export default function HomeClient() {
         Tip: if the magic link opens on a different device, just come back to
         this page after clicking it—your session will be active here too.
       </p>
+      {toastMsg && (
+        <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
+      )}
     </main>
   );
 }
