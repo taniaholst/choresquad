@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { RRule, RRuleSet, Weekday } from "rrule";
 import { set as setTime } from "date-fns";
-import type { Chore, Profile, Recurrence } from "@/types/db";
+import type { Chore, ChoreOccurrence, Profile, Recurrence } from "@/types/db";
 import { Toast } from "@/components/Toast";
 
 const WDAY: Record<number, Weekday> = {
@@ -31,48 +31,39 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
   const [notify, setNotify] = useState<number | null>(null);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [occurrences, setOccurrences] = useState<ChoreOccurrence[]>([]);
 
   async function load() {
-    const { data: memberRows, error: mErr } = await supabase
+    // members
+    const { data: m } = await supabase
       .from("household_members")
-      .select("user_id")
+      .select("user_id, profiles(id, display_name, emoji)")
       .eq("household_id", householdId)
       .order("added_at", { ascending: true });
 
-    if (mErr) {
-      console.error(mErr);
-      return;
-    }
-
-    const userIds = (memberRows ?? []).map((r) => r.user_id);
-    let mem: Profile[] = [];
-
-    if (userIds.length) {
-      const { data: profs, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, display_name, emoji")
-        .in("id", userIds);
-
-      if (pErr) {
-        console.error(pErr);
-      }
-      mem = (profs ?? []) as Profile[];
-    }
-
+    const mem = ((m ?? []) as { profiles: Profile | null }[])
+      .map((row) => row.profiles)
+      .filter((p): p is Profile => Boolean(p));
     setMembers(mem);
 
-    // 3) chores
-    const { data: choresData, error: cErr } = await supabase
+    // chores
+    const { data: c } = await supabase
       .from("chores")
       .select("*, chore_assignees(user_id)")
       .eq("household_id", householdId)
       .order("created_at", { ascending: false });
+    setChores((c ?? []) as Chore[]);
 
-    if (cErr) {
-      console.error(cErr);
-      return;
-    }
-    setChores((choresData ?? []) as Chore[]);
+    // occurrences (for this household’s chores)
+    const { data: o } = await supabase
+      .from("chore_occurrences")
+      .select("id, chore_id, due_at, status, completed_at, completed_by")
+      .in(
+        "chore_id",
+        (c ?? []).map((ch) => ch.id),
+      )
+      .order("due_at", { ascending: true });
+    setOccurrences((o ?? []) as ChoreOccurrence[]);
   }
 
   useEffect(() => {
@@ -304,38 +295,75 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">Chores</h2>
+        <h2 className="font-medium">Upcoming occurrences</h2>
+        <button
+          className="border rounded px-3 py-1 text-xs"
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/backfill");
+              const json = await res.json();
+              setToastMsg(`✅ Backfilled ${json.created} occurrences`);
+              await load();
+              // @ts-expect-error TS2322 - `never` should never happen
+            } catch (e: never) {
+              setToastMsg(`❌ Backfill failed: ${e.message ?? e}`);
+            }
+          }}
+        >
+          Run backfill
+        </button>
+        {occurrences.length === 0 && (
+          <div className="text-sm opacity-70">
+            No occurrences yet. Try “Run backfill”.
+          </div>
+        )}
         <ul className="space-y-2">
-          {chores.map((c) => (
-            <li key={c.id} className="border rounded p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{c.category_emoji ?? "🧼"}</span>
-                  <div>
-                    <div className="font-medium">{c.title}</div>
-                    <div className="text-xs opacity-70">
-                      {c.recurrence !== "none"
-                        ? `Repeats ${c.recurrence}`
-                        : "One-off"}
-                    </div>
+          {occurrences.map((o) => {
+            const chore = chores.find((c) => c.id === o.chore_id);
+            return (
+              <li
+                key={o.id}
+                className="border rounded p-3 flex justify-between items-center"
+              >
+                <div>
+                  <div className="font-medium">
+                    {chore?.category_emoji ?? "🧹"}{" "}
+                    {chore?.title ?? "Unknown chore"}
+                  </div>
+                  <div className="text-xs opacity-70">
+                    Due: {new Date(o.due_at).toLocaleString()}
                   </div>
                 </div>
-                <div className="text-sm opacity-70">{c.due_time ?? ""}</div>
-              </div>
-              {c.chore_assignees && c.chore_assignees.length > 0 && (
-                <div className="text-xs mt-2">
-                  Assigned to:{" "}
-                  {c.chore_assignees
-                    .map(
-                      (a) =>
-                        members.find((m) => m.id === a.user_id)?.display_name ??
-                        "—",
-                    )
-                    .join(", ")}
+                <div>
+                  {o.status === "done" ? (
+                    <span className="text-green-600 text-sm">✅ Done</span>
+                  ) : (
+                    <button
+                      className="border rounded px-2 py-1 text-xs"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("chore_occurrences")
+                          .update({
+                            status: "done",
+                            completed_at: new Date().toISOString(),
+                            completed_by: userId, // make sure you store current userId in state
+                          })
+                          .eq("id", o.id);
+                        if (!error) {
+                          setToastMsg("🎉 Chore marked as done");
+                          await load();
+                        } else {
+                          setToastMsg(`❌ ${error.message}`);
+                        }
+                      }}
+                    >
+                      Mark done
+                    </button>
+                  )}
                 </div>
-              )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
       <button

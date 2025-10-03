@@ -44,3 +44,12 @@ export type Chore = {
   created_at: string;
   chore_assignees?: ChoreAssignee[] | null;
 };
+
+export type ChoreOccurrence = {
+  id: string;
+  chore_id: string;
+  due_at: string;
+  status: "pending" | "done";
+  completed_at: string | null;
+  completed_by: string | null;
+};
