@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { sendMagicLink } from "@/actions/auth";
 
-export default function LoginForm({
+export default function SignupForm({
   setToastMsg,
 }: {
-  setToastMsg?: (msg: string | null) => void;
+  setToastMsg?: (m: string | null) => void;
 }) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sent" | "sending">("idle");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
 
   async function onSend() {
     setStatus("sending");
@@ -24,17 +24,23 @@ export default function LoginForm({
   }
 
   return (
-    <div className="space-y-3 border rounded p-4">
-      <label className="text-sm font-medium">Sign in with magic link</label>
+    <form
+      className="space-y-3 border rounded p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSend();
+      }}
+    >
+      <label className="text-sm font-medium">Sign up with magic link</label>
       <input
         className="border rounded px-3 py-2 w-full"
         type="email"
+        inputMode="email"
         placeholder="you@email.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
       <button
-        onClick={onSend}
         className="border rounded px-4 py-2 w-full"
         disabled={!email || status === "sending"}
       >
@@ -45,6 +51,6 @@ export default function LoginForm({
           Email sent—check your inbox.
         </div>
       )}
-    </div>
+    </form>
   );
 }

@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Toast } from "@/components/Toast";
-import LoginForm from "@/components/auth/LoginForm";
 import DisplayNameForm from "@/components/auth/DisplayNameForm";
 import HouseholdList from "@/components/households/HouseholdList";
 import InviteModal from "@/components/households/InviteModal";
-import { useProfile } from "@/hooks/useProfile";
 import { useHouseholds } from "@/hooks/useHouseholds";
 import { createHouseholdWithName, renameHousehold } from "@/actions/households";
+import SetPasswordForm from "@/components/auth/SetPassworsForm";
+import AuthTabs from "@/components/auth/AuthTabs";
+import { useProfile } from "@/hooks/useProfile";
 
 export default function HomeClient() {
   const search = useSearchParams();
@@ -17,7 +18,33 @@ export default function HomeClient() {
   const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [inviteModal, setInviteModal] = useState<string | null>(null);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [hasDisplayName, setHasDisplayName] = useState(false);
 
+  const { displayName, setDisplayName } = useProfile(userId);
+  const { households, setHouseholds } = useHouseholds(userId);
+
+  // whenever userId changes, (re)load profile flags
+  useEffect(() => {
+    if (!userId) {
+      setHasPassword(false);
+      setHasDisplayName(false);
+      return;
+    }
+
+    (async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name, has_password")
+        .eq("id", userId)
+        .single();
+
+      setHasPassword(!!profile?.has_password);
+      setHasDisplayName(!!profile?.display_name);
+    })();
+  }, [userId]);
+
+  // fetch profile on mount + auth state changes
   useEffect(() => {
     const flag = search.get("welcome");
     if (flag) setWelcomeFlag(flag);
@@ -36,9 +63,6 @@ export default function HomeClient() {
 
     return () => sub.subscription.unsubscribe();
   }, [search]);
-
-  const { displayName, setDisplayName } = useProfile(userId);
-  const { households, setHouseholds } = useHouseholds(userId);
 
   async function handleCreateHousehold(hhName: string) {
     if (!userId) return;
@@ -72,17 +96,25 @@ export default function HomeClient() {
       </p>
 
       {!userId ? (
-        <LoginForm setToastMsg={setToastMsg} />
-      ) : !displayName ? (
+        <AuthTabs setToastMsg={setToastMsg} />
+      ) : !hasPassword ? (
+        <SetPasswordForm
+          setToastMsg={setToastMsg}
+          onDone={() => setHasPassword(true)}
+        />
+      ) : !hasDisplayName ? (
         <DisplayNameForm
           userId={userId}
           welcomeFlag={welcomeFlag}
-          setDisplayName={setDisplayName}
+          setDisplayName={(n) => {
+            setDisplayName(n);
+            setHasDisplayName(true);
+          }}
           setToastMsg={setToastMsg}
         />
       ) : (
         <HouseholdList
-          name={displayName}
+          name={displayName!}
           households={households}
           onCreate={handleCreateHousehold}
           onInvite={(code) => setInviteModal(code)}
