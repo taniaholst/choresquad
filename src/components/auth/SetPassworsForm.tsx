@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { setPassword } from "@/actions/auth";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 function isStrong(pw: string) {
   return (
@@ -19,13 +20,16 @@ export default function SetPasswordForm({
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   async function submit() {
     if (pw !== pw2) return setToastMsg?.("❌ Passwords do not match");
-    if (!isStrong(pw))
+    if (!isStrong(pw)) {
       return setToastMsg?.(
         "❌ Password must be ≥8 chars, include a number and a special character",
       );
+    }
+
     setSaving(true);
     const res = await setPassword(pw);
     if (!res.ok) {
@@ -33,7 +37,7 @@ export default function SetPasswordForm({
       setToastMsg?.(`❌ ${res.error ?? "Failed to set password"}`);
       return;
     }
-    // mark profile flag
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -43,8 +47,11 @@ export default function SetPasswordForm({
         .update({ has_password: true })
         .eq("id", user.id);
     }
+
     setSaving(false);
     setToastMsg?.("🔒 Password set");
+
+    router.refresh();
     onDone();
   }
 

@@ -87,7 +87,7 @@ export default function HomeClient() {
             mutate();
           }}
         />
-      ) : !displayName ? (
+      ) : hasPassword && !displayName ? (
         <DisplayNameForm
           userId={userId}
           welcomeFlag={welcomeFlag}
@@ -100,7 +100,7 @@ export default function HomeClient() {
         />
       ) : (
         <HouseholdList
-          name={displayName}
+          name={displayName!}
           households={households}
           onCreate={handleCreateHousehold}
           onInvite={(code) => setInviteModal(code)}
