@@ -20,7 +20,12 @@ export type HouseholdMemberRow = {
 export type ChoreAssignee = { user_id: string }
 
 export type Recurrence =
-    | 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom_weekdays'
+    | 'none'
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'yearly'
+    | 'custom_weekdays'
 
 export type Chore = {
     id: string
