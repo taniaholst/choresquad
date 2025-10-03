@@ -4,6 +4,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Toast } from "@/components/Toast";
 
+type Household = {
+  id: string;
+  name: string;
+  invite_code: string;
+};
+
 export default function HomeClient() {
   const router = useRouter();
   const search = useSearchParams();
@@ -17,6 +23,9 @@ export default function HomeClient() {
   const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  const [hasDisplayName, setHasDisplayName] = useState(false);
+  const [households, setHouseholds] = useState<Household[]>([]);
+
   useEffect(() => {
     const flag = search.get("welcome");
     if (flag) setWelcomeFlag(flag);
@@ -27,6 +36,34 @@ export default function HomeClient() {
       if (user) {
         setUserId(user.id);
         setStatus("signedin");
+
+        // check profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .single();
+        if (profile?.display_name) {
+          setHasDisplayName(true);
+          setName(profile.display_name);
+        }
+
+        // fetch households where user is member
+        const { data: memberships } = await supabase
+          .from("household_members")
+          .select("households(id, name, invite_code)")
+          .eq("user_id", user.id);
+
+        type MembershipRow = { households: Household | Household[] | null };
+
+        const hhRows = (memberships ?? []) as MembershipRow[];
+        const hh = hhRows
+          .map((r) =>
+            Array.isArray(r.households) ? r.households[0] : r.households,
+          )
+          .filter((x): x is Household => Boolean(x));
+
+        setHouseholds(hh);
       }
     })();
 
@@ -61,8 +98,28 @@ export default function HomeClient() {
       setToastMsg(`❌ ${error.message}`);
       return;
     }
+    setHasDisplayName(true);
     setToastMsg("🎉 Profile saved");
-    router.push("/households");
+  }
+
+  async function createHousehold() {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("households")
+      .insert({ name: "My Household", owner_id: userId })
+      .select("*")
+      .single();
+    if (error) {
+      setToastMsg(`❌ ${error.message}`);
+      return;
+    }
+    // also insert membership for creator
+    await supabase.from("household_members").insert({
+      household_id: data.id,
+      user_id: userId,
+    });
+    setHouseholds((prev) => [data, ...prev]);
+    setToastMsg("🎉 Household created");
   }
 
   const isSignedIn = status === "signedin" || !!userId;
@@ -76,6 +133,7 @@ export default function HomeClient() {
       </p>
 
       {!isSignedIn ? (
+        // --- Login form ---
         <div className="space-y-3 border rounded p-4">
           <label className="text-sm font-medium">Sign in with magic link</label>
           <input
@@ -98,7 +156,8 @@ export default function HomeClient() {
             </div>
           )}
         </div>
-      ) : (
+      ) : !hasDisplayName ? (
+        // --- Choose display name ---
         <div className="border rounded p-4 space-y-3">
           {welcomeFlag && (
             <div className="text-sm bg-green-50 border border-green-200 rounded p-2">
@@ -124,6 +183,54 @@ export default function HomeClient() {
           <p className="text-xs opacity-70">
             We’ll use this name in your household and on assignments.
           </p>
+        </div>
+      ) : households.length === 0 ? (
+        // --- No household yet ---
+        <div className="border rounded p-4 space-y-3">
+          <div className="text-sm">
+            👋 {name}, you don’t have a household yet.
+          </div>
+          <button
+            onClick={createHousehold}
+            className="border rounded px-4 py-2 w-full"
+          >
+            Create household
+          </button>
+        </div>
+      ) : (
+        // --- Show households ---
+        <div className="border rounded p-4 space-y-4">
+          <div className="text-sm">👋 {name}, here are your households:</div>
+          <ul className="space-y-3">
+            {households.map((h) => (
+              <li key={h.id} className="border rounded p-3 space-y-2">
+                <div className="font-medium">{h.name}</div>
+                <div className="text-xs opacity-70">
+                  Invite code: <code>{h.invite_code}</code>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => router.push(`/households/${h.id}`)}
+                    className="border rounded px-3 py-1 text-sm"
+                  >
+                    Show chores
+                  </button>
+                  <button
+                    onClick={() => router.push(`/households/${h.id}`)}
+                    className="border rounded px-3 py-1 text-sm"
+                  >
+                    Add chore
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={createHousehold}
+            className="border rounded px-4 py-2 w-full"
+          >
+            + Create another household
+          </button>
         </div>
       )}
 
