@@ -29,7 +29,7 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/profile")}
-            className="text-sm opacity-80 underline"
+            className="text-sm opacity-80 underline cursor-pointer"
             title="Edit profile"
           >
             👋 {displayName}
