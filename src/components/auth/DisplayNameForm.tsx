@@ -16,8 +16,8 @@ export default function DisplayNameForm({
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idle" | "saving">("idle");
 
-  async function handleSaveProfile(name: string) {
-    if (!userId) return;
+  async function handleSaveProfile() {
+    if (!userId || !name.trim()) return;
     setStatus("saving");
     const ok = await saveProfile(userId, name);
     if (!ok) {
@@ -38,19 +38,29 @@ export default function DisplayNameForm({
         </div>
       )}
       <label className="text-sm font-medium">Choose your display name</label>
-      <input
-        className="border rounded px-3 py-2 w-full"
-        placeholder="e.g., Tania"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <button
-        onClick={() => handleSaveProfile(name)}
-        className="border rounded px-4 py-2 w-full"
-        disabled={!name.trim() || status === "saving"}
+
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSaveProfile();
+        }}
       >
-        {status === "saving" ? "Saving…" : "Save & continue"}
-      </button>
+        <input
+          className="border rounded px-3 py-2 w-full"
+          placeholder="e.g., Josephine"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="border rounded px-4 py-2 w-full"
+          disabled={!name.trim() || status === "saving"}
+        >
+          {status === "saving" ? "Saving…" : "Save & continue"}
+        </button>
+      </form>
+
       <p className="text-xs opacity-70">
         We’ll use this name in your household and on assignments.
       </p>
