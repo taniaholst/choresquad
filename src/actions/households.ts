@@ -17,7 +17,7 @@ export async function createHouseholdWithName(
   // 1) Create household (RLS must allow owner_id = auth.uid())
   const { data: hh, error: hhErr } = await supabase
     .from("households")
-    .insert([{ name: trimmed, owner_id: userId }])
+    .insert([{ name: trimmed }])
     .select("*")
     .single();
 
