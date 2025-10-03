@@ -17,20 +17,23 @@ export default function SetPasswordForm({
   onDone: () => void;
   setToastMsg?: (m: string | null) => void;
 }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
-  const router = useRouter();
 
   async function submit() {
+    if (!name.trim()) return setToastMsg?.("❌ Please enter a display name");
     if (pw !== pw2) return setToastMsg?.("❌ Passwords do not match");
-    if (!isStrong(pw)) {
+    if (!isStrong(pw))
       return setToastMsg?.(
         "❌ Password must be ≥8 chars, include a number and a special character",
       );
-    }
 
     setSaving(true);
+
+    // 1) Save password in Supabase Auth
     const res = await setPassword(pw);
     if (!res.ok) {
       setSaving(false);
@@ -38,10 +41,10 @@ export default function SetPasswordForm({
       return;
     }
 
+    // 2) Update profile with has_password + display_name
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
     if (!user) {
       setSaving(false);
       setToastMsg?.("❌ No active session after setting password");
@@ -50,9 +53,7 @@ export default function SetPasswordForm({
 
     const { error: upErr } = await supabase
       .from("profiles")
-      .update({ has_password: true })
-      .eq("id", user.id);
-
+      .upsert({ id: user.id, has_password: true, display_name: name.trim() });
     if (upErr) {
       setSaving(false);
       setToastMsg?.(`❌ Failed to update profile: ${upErr.message}`);
@@ -60,10 +61,9 @@ export default function SetPasswordForm({
     }
 
     setSaving(false);
-    setToastMsg?.("🔒 Password set");
-
-    // ✅ don't rely on refresh alone — let parent refetch
-    onDone();
+    setToastMsg?.("✅ Account set up");
+    onDone(); // parent will reload profile
+    router.replace("/"); // move forward (can change to /households if desired)
   }
 
   return (
@@ -74,7 +74,17 @@ export default function SetPasswordForm({
         void submit();
       }}
     >
-      <div className="text-sm">Create a password for quick sign-ins</div>
+      <div className="text-sm">Finish setting up your account</div>
+
+      <label className="text-sm font-medium">Display name</label>
+      <input
+        className="border rounded px-3 py-2 w-full"
+        placeholder="e.g., Tania"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+
+      <label className="text-sm font-medium">Password</label>
       <input
         className="border rounded px-3 py-2 w-full"
         type="password"
@@ -89,9 +99,11 @@ export default function SetPasswordForm({
         value={pw2}
         onChange={(e) => setPw2(e.target.value)}
       />
+
       <button className="border rounded px-4 py-2 w-full" disabled={saving}>
-        {saving ? "Saving…" : "Set password"}
+        {saving ? "Saving…" : "Save & continue"}
       </button>
+
       <p className="text-xs opacity-70">
         Must be at least 8 chars, incl. one number and one special character.
       </p>

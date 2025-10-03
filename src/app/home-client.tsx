@@ -3,12 +3,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Toast } from "@/components/Toast";
-import DisplayNameForm from "@/components/auth/DisplayNameForm";
 import HouseholdList from "@/components/households/HouseholdList";
 import InviteModal from "@/components/households/InviteModal";
 import { useHouseholds } from "@/hooks/useHouseholds";
 import { createHouseholdWithName, renameHousehold } from "@/actions/households";
-import SetPasswordForm from "@/components/auth/SetPassworsForm"; // keep your existing path
+import SetPasswordForm from "@/components/auth/SetProfileForm";
 import AuthTabs from "@/components/auth/AuthTabs";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -16,15 +15,18 @@ export default function HomeClient() {
   const search = useSearchParams();
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null);
+  const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null); // kept if you still show it elsewhere
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [inviteModal, setInviteModal] = useState<string | null>(null);
 
+  // profile flags live in the hook
   const { displayName, setDisplayName, hasPassword, loading, mutate } =
     useProfile(userId);
 
+  // households
   const { households, setHouseholds } = useHouseholds(userId);
 
+  // bootstrap session + auth listener
   useEffect(() => {
     const flag = search.get("welcome");
     if (flag) setWelcomeFlag(flag);
@@ -44,23 +46,18 @@ export default function HomeClient() {
     return () => sub.subscription.unsubscribe();
   }, [search]);
 
+  // actions
   async function handleCreateHousehold(hhName: string) {
     if (!userId) return;
     const newHousehold = await createHouseholdWithName(userId, hhName);
-    if (!newHousehold) {
-      setToastMsg("❌ Failed to create household");
-      return;
-    }
+    if (!newHousehold) return setToastMsg("❌ Failed to create household");
     setHouseholds((prev) => [newHousehold, ...prev]);
     setToastMsg("🎉 Household created");
   }
 
   async function handleRenameHousehold(id: string, newName: string) {
     const ok = await renameHousehold(id, newName);
-    if (!ok) {
-      setToastMsg("❌ Failed to rename household");
-      return;
-    }
+    if (!ok) return setToastMsg("❌ Failed to rename household");
     setHouseholds((prev) =>
       prev.map((h) => (h.id === id ? { ...h, name: newName } : h)),
     );
@@ -79,28 +76,19 @@ export default function HomeClient() {
         <AuthTabs setToastMsg={setToastMsg} />
       ) : loading ? (
         <div className="text-sm opacity-70">Loading…</div>
-      ) : !hasPassword ? (
+      ) : !hasPassword || !displayName ? (
+        // 🔥 Single combined step: set password + display name
         <SetPasswordForm
           setToastMsg={setToastMsg}
           onDone={() => {
-            setToastMsg("🔒 Password set");
-            mutate();
+            // After SetPasswordForm upserts has_password + display_name:
+            mutate(); // refresh profile from DB
+            setToastMsg("✅ Account set up");
           }}
-        />
-      ) : hasPassword && !displayName ? (
-        <DisplayNameForm
-          userId={userId}
-          welcomeFlag={welcomeFlag}
-          setDisplayName={(n) => {
-            setDisplayName(n);
-            setToastMsg("🎉 Profile saved");
-            mutate();
-          }}
-          setToastMsg={setToastMsg}
         />
       ) : (
         <HouseholdList
-          name={displayName!}
+          name={displayName}
           households={households}
           onCreate={handleCreateHousehold}
           onInvite={(code) => setInviteModal(code)}
