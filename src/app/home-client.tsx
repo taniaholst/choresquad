@@ -21,8 +21,13 @@ export default function HomeClient() {
 
   useEffect(() => {
     (async () => {
+      const sess = await supabase.auth.getSession();
+      console.log("has session?", !!sess.data.session);
+      console.log("user id:", sess.data.session?.user?.id);
+      console.log("access token present?", !!sess.data.session?.access_token);
+
       const { data } = await supabase.rpc("whoami");
-      console.log("DB sees user:", data);
+      console.log("whoami() →", data);
     })();
   }, []);
 
