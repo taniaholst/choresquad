@@ -72,7 +72,7 @@ export default function HomeClient() {
       </p>
 
       {!userId ? (
-        <LoginForm />
+        <LoginForm setToastMsg={setToastMsg} />
       ) : !displayName ? (
         <DisplayNameForm
           userId={userId}

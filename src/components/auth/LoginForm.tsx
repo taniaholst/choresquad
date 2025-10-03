@@ -1,19 +1,26 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { sendMagicLink } from "@/actions/auth";
 
-export default function LoginForm() {
+export default function LoginForm({
+  setToastMsg,
+}: {
+  setToastMsg?: (msg: string | null) => void;
+}) {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sent">("idle");
+  const [status, setStatus] = useState<"idle" | "sent" | "sending">("idle");
 
-  async function sendMagicLink() {
-    const emailRedirectTo = `${location.origin}/?welcome=1`;
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo },
-    });
-    if (error) return alert(error.message);
+  async function onSend() {
+    setStatus("sending");
+    const redirectTo = `${location.origin}/?welcome=1`;
+    const res = await sendMagicLink(email, redirectTo);
+    if (!res.ok) {
+      setStatus("idle");
+      setToastMsg?.(`❌ ${res.error}`);
+      return;
+    }
     setStatus("sent");
+    setToastMsg?.("📬 Magic link sent");
   }
 
   return (
@@ -27,11 +34,11 @@ export default function LoginForm() {
         onChange={(e) => setEmail(e.target.value)}
       />
       <button
-        onClick={sendMagicLink}
+        onClick={onSend}
         className="border rounded px-4 py-2 w-full"
-        disabled={!email}
+        disabled={!email || status === "sending"}
       >
-        Send magic link
+        {status === "sending" ? "Sending…" : "Send magic link"}
       </button>
       {status === "sent" && (
         <div className="text-xs text-green-700">
