@@ -1,22 +1,18 @@
+// src/components/profile/DeleteAccount.tsx
 "use client";
-import { supabase } from "@/lib/supabase";
-
 export default function DeleteAccount() {
   async function handleDelete() {
     if (!confirm("⚠️ This will permanently delete your account. Continue?"))
       return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    const res = await fetch("/api/delete-account", { method: "POST" });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      alert(`❌ Failed to delete account: ${json.error ?? "Unknown error"}`);
+      return;
+    }
 
-    // Delete profile row
-    await supabase.from("profiles").delete().eq("id", user.id);
-
-    // For full user deletion, we need a server action with SERVICE_ROLE
-    // Here we just sign them out after deleting their profile row
-    await supabase.auth.signOut();
+    // success → bounce to home
     window.location.href = "/";
   }
 
@@ -30,8 +26,7 @@ export default function DeleteAccount() {
         Delete account
       </button>
       <p className="text-xs opacity-70">
-        This deletes your profile row and logs you out. To fully remove your
-        auth user, implement a secure server action with the service role.
+        This permanently deletes your auth user and profile.
       </p>
     </div>
   );
