@@ -19,6 +19,13 @@ export default function HomeClient() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [inviteModal, setInviteModal] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc("whoami");
+      console.log("DB sees user:", data);
+    })();
+  }, []);
+
   // profile flags live in the hook
   const { displayName, setDisplayName, hasPassword, loading, mutate } =
     useProfile(userId);
