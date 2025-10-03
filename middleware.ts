@@ -1,31 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/"]);
+const PUBLIC_PATHS = new Set<string>(["/"]);
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone();
-  const path = url.pathname;
+  const path = req.nextUrl.pathname;
 
   if (
-    PUBLIC_PATHS.has(path) ||
     path.startsWith("/_next") ||
-    path.startsWith("/api") ||
-    path.startsWith("/favicon")
+    path === "/favicon.ico" ||
+    path.match(/\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|txt|json)$/)
   ) {
     return NextResponse.next();
   }
 
-  // check Supabase session cookie (lightweight heuristic)
   const hasSession =
-    req.cookies.get("sb-access-token") ||
-    req.cookies.get("sb:token") ||
-    req.cookies.get("supabase-auth-token");
+    req.cookies.get("sb-access-token") || req.cookies.get("sb-refresh-token");
 
-  if (!hasSession) {
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  if (hasSession) return NextResponse.next();
+  if (PUBLIC_PATHS.has(path)) return NextResponse.next();
 
-  return NextResponse.next();
+  const url = req.nextUrl.clone();
+  url.pathname = "/";
+  return NextResponse.redirect(url);
 }
