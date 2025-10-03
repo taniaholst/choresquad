@@ -8,43 +8,23 @@ import HouseholdList from "@/components/households/HouseholdList";
 import InviteModal from "@/components/households/InviteModal";
 import { useHouseholds } from "@/hooks/useHouseholds";
 import { createHouseholdWithName, renameHousehold } from "@/actions/households";
-import SetPasswordForm from "@/components/auth/SetPassworsForm";
+import SetPasswordForm from "@/components/auth/SetPassworsForm"; // keep your existing path
 import AuthTabs from "@/components/auth/AuthTabs";
 import { useProfile } from "@/hooks/useProfile";
 
 export default function HomeClient() {
   const search = useSearchParams();
+
   const [userId, setUserId] = useState<string | null>(null);
   const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [inviteModal, setInviteModal] = useState<string | null>(null);
-  const [hasPassword, setHasPassword] = useState(false);
-  const [hasDisplayName, setHasDisplayName] = useState(false);
 
-  const { displayName, setDisplayName } = useProfile(userId);
+  const { displayName, setDisplayName, hasPassword, loading, mutate } =
+    useProfile(userId);
+
   const { households, setHouseholds } = useHouseholds(userId);
 
-  // whenever userId changes, (re)load profile flags
-  useEffect(() => {
-    if (!userId) {
-      setHasPassword(false);
-      setHasDisplayName(false);
-      return;
-    }
-
-    (async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, has_password")
-        .eq("id", userId)
-        .single();
-
-      setHasPassword(!!profile?.has_password);
-      setHasDisplayName(!!profile?.display_name);
-    })();
-  }, [userId]);
-
-  // fetch profile on mount + auth state changes
   useEffect(() => {
     const flag = search.get("welcome");
     if (flag) setWelcomeFlag(flag);
@@ -97,24 +77,30 @@ export default function HomeClient() {
 
       {!userId ? (
         <AuthTabs setToastMsg={setToastMsg} />
+      ) : loading ? (
+        <div className="text-sm opacity-70">Loading…</div>
       ) : !hasPassword ? (
         <SetPasswordForm
           setToastMsg={setToastMsg}
-          onDone={() => setHasPassword(true)}
+          onDone={() => {
+            setToastMsg("🔒 Password set");
+            mutate();
+          }}
         />
-      ) : !hasDisplayName ? (
+      ) : !displayName ? (
         <DisplayNameForm
           userId={userId}
           welcomeFlag={welcomeFlag}
           setDisplayName={(n) => {
             setDisplayName(n);
-            setHasDisplayName(true);
+            setToastMsg("🎉 Profile saved");
+            mutate();
           }}
           setToastMsg={setToastMsg}
         />
       ) : (
         <HouseholdList
-          name={displayName!}
+          name={displayName}
           households={households}
           onCreate={handleCreateHousehold}
           onInvite={(code) => setInviteModal(code)}
@@ -130,6 +116,7 @@ export default function HomeClient() {
       {toastMsg && (
         <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
       )}
+
       {inviteModal && (
         <InviteModal
           code={inviteModal}
