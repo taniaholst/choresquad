@@ -2,34 +2,47 @@
 import { supabase } from "@/lib/supabase";
 import type { Household } from "@/components/households/HouseholdList";
 
+type CreateHouseholdResult =
+  | { ok: true; household: Household }
+  | { ok: false; error: string; partial?: boolean };
+
 export async function createHouseholdWithName(
   userId: string,
   name: string,
-): Promise<Household | null> {
-  const { data, error } = await supabase
+): Promise<CreateHouseholdResult> {
+  const trimmed = name.trim();
+  if (!userId) return { ok: false, error: "No userId" };
+  if (!trimmed) return { ok: false, error: "Please enter a household name" };
+
+  // 1) Create household (RLS must allow owner_id = auth.uid())
+  const { data: hh, error: hhErr } = await supabase
     .from("households")
-    .insert({ name, owner_id: userId })
+    .insert([{ name: trimmed, owner_id: userId }])
     .select("*")
     .single();
 
-  if (error || !data) {
-    console.error("Error creating household:", error?.message);
-    return null;
+  if (hhErr || !hh) {
+    // common RLS hint
+    const msg = hhErr?.message?.includes("row-level security")
+      ? "Creation blocked by RLS. Ensure INSERT policy: WITH CHECK (owner_id = auth.uid())."
+      : hhErr?.message || "Failed to create household.";
+    return { ok: false, error: msg };
   }
 
-  // also add creator as a member
-  const { error: memberError } = await supabase
+  // 2) Add creator as member (RLS must allow INSERT with user_id = auth.uid())
+  const { error: memErr } = await supabase
     .from("household_members")
-    .insert({
-      household_id: data.id,
-      user_id: userId,
-    });
+    .insert([{ household_id: hh.id, user_id: userId }]);
 
-  if (memberError) {
-    console.error("Error inserting membership:", memberError.message);
+  if (memErr) {
+    const msg = memErr.message?.includes("row-level security")
+      ? "Household created, but membership insert blocked by RLS. Ensure INSERT policy: WITH CHECK (user_id = auth.uid())."
+      : `Household created, but failed to add you as a member: ${memErr.message}`;
+    // mark as partial so UI can decide what to do (e.g., show warning + reload)
+    return { ok: false, error: msg, partial: true };
   }
 
-  return data as Household;
+  return { ok: true, household: hh as Household };
 }
 
 export async function renameHousehold(

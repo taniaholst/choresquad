@@ -49,9 +49,20 @@ export default function HomeClient() {
   // actions
   async function handleCreateHousehold(hhName: string) {
     if (!userId) return;
-    const newHousehold = await createHouseholdWithName(userId, hhName);
-    if (!newHousehold) return setToastMsg("❌ Failed to create household");
-    setHouseholds((prev) => [newHousehold, ...prev]);
+
+    const res = await createHouseholdWithName(userId, hhName);
+
+    if (!res.ok) {
+      // if partial is true, the household was created but membership failed
+      setToastMsg(
+        res.partial
+          ? `⚠️ ${res.error}`
+          : `❌ ${res.error || "Failed to create household"}`,
+      );
+      return;
+    }
+
+    setHouseholds((prev) => [res.household, ...prev]);
     setToastMsg("🎉 Household created");
   }
 
