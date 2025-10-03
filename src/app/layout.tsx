@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ChoreSquad",
-  description: "Manage chores with your household",
+  description: "Manage chores in your household!",
 };
 
 export default function RootLayout({

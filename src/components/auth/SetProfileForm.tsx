@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setPassword } from "@/actions/auth";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -23,6 +23,12 @@ export default function SetProfileForm({
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameInputRef.current?.focus();
+  }, []);
+
   async function submit() {
     if (!name.trim()) return setToastMsg?.("❌ Please enter a display name");
     if (pw !== pw2) return setToastMsg?.("❌ Passwords do not match");
@@ -33,7 +39,7 @@ export default function SetProfileForm({
 
     setSaving(true);
 
-    // 1) Save password in Supabase Auth
+    // 1) Save password to Supabase Auth (hashed in auth.users)
     const res = await setPassword(pw);
     if (!res.ok) {
       setSaving(false);
@@ -41,7 +47,7 @@ export default function SetProfileForm({
       return;
     }
 
-    // 2) Update profile with has_password + display_name
+    // 2) Upsert profile with display name + has_password
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -54,6 +60,7 @@ export default function SetProfileForm({
     const { error: upErr } = await supabase
       .from("profiles")
       .upsert({ id: user.id, has_password: true, display_name: name.trim() });
+
     if (upErr) {
       setSaving(false);
       setToastMsg?.(`❌ Failed to update profile: ${upErr.message}`);
@@ -62,8 +69,12 @@ export default function SetProfileForm({
 
     setSaving(false);
     setToastMsg?.("🎉 Profile saved");
-    onDone(); // parent will reload profile
-    router.replace("/"); // move forward (or /households if you prefer)
+
+    // Let parent refresh profile state and move forward
+    onDone();
+
+    // Optional: ensure fresh render / route
+    router.replace("/");
   }
 
   return (
@@ -78,10 +89,12 @@ export default function SetProfileForm({
 
       <label className="text-sm font-medium">Display name</label>
       <input
+        ref={nameInputRef}
         className="border rounded px-3 py-2 w-full"
         placeholder="e.g., Tania"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        autoCapitalize="words"
       />
 
       <label className="text-sm font-medium">Password</label>

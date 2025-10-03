@@ -7,9 +7,9 @@ import HouseholdList from "@/components/households/HouseholdList";
 import InviteModal from "@/components/households/InviteModal";
 import { useHouseholds } from "@/hooks/useHouseholds";
 import { createHouseholdWithName, renameHousehold } from "@/actions/households";
-import SetPasswordForm from "@/components/auth/SetProfileForm";
 import AuthTabs from "@/components/auth/AuthTabs";
 import { useProfile } from "@/hooks/useProfile";
+import SetProfileForm from "@/components/auth/SetProfileForm";
 
 export default function HomeClient() {
   const search = useSearchParams();
@@ -77,12 +77,10 @@ export default function HomeClient() {
       ) : loading ? (
         <div className="text-sm opacity-70">Loading…</div>
       ) : !hasPassword || !displayName ? (
-        // 🔥 Single combined step: set password + display name
-        <SetPasswordForm
+        <SetProfileForm
           setToastMsg={setToastMsg}
           onDone={() => {
-            // After SetPasswordForm upserts has_password + display_name:
-            mutate(); // refresh profile from DB
+            mutate();
             setToastMsg("✅ Account set up");
           }}
         />

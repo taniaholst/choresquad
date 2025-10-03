@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   getCachedHouseholdName,
@@ -11,22 +11,30 @@ export default function Header() {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [householdName, setHouseholdName] = useState<string | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
 
+  // fetch display name of current user
   useEffect(() => {
     (async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
+      if (!user) {
+        setDisplayName(null);
+        return;
+      }
+      const { data, error } = await supabase
         .from("profiles")
         .select("display_name")
         .eq("id", user.id)
         .single();
-      if (data?.display_name) setDisplayName(data.display_name);
+      if (!error && data?.display_name) {
+        setDisplayName(data.display_name);
+      }
     })();
   }, []);
 
+  // fetch household name if pathname contains householdId
   useEffect(() => {
     const match = pathname.match(/^\/households\/([^/]+)/);
     if (!match) {
@@ -57,18 +65,23 @@ export default function Header() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    setDisplayName(null);
+    setHouseholdName(null);
+    router.replace("/");
   }
 
   return (
     <header className="flex justify-between items-center px-6 py-3 border-b">
-      <h1 className="text-lg font-semibold">
+      <h1 className="text-lg font-semibold truncate">
         ChoreSquad{householdName ? ` · ${householdName}` : ""}
       </h1>
       {displayName && (
         <div className="flex items-center gap-3">
           <span className="text-sm opacity-80">👋 {displayName}</span>
-          <button onClick={handleLogout} className="text-xs underline">
+          <button
+            onClick={handleLogout}
+            className="text-xs underline text-red-600"
+          >
             Log out
           </button>
         </div>
