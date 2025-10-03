@@ -5,6 +5,8 @@ import { useDisplayName } from "@/hooks/useDisplayName";
 import { useHouseholdName } from "@/hooks/useHouseholdName";
 import { getHouseholdIdFromPath } from "@/lib/path";
 import { supabase } from "@/lib/supabase";
+import ProfileEditor from "@/components/profile/ProfileEditor";
+import { useState } from "react";
 
 export default function Header() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function Header() {
   const userId = useAuthUserId();
   const displayName = useDisplayName(userId);
   const householdName = useHouseholdName(getHouseholdIdFromPath(pathname));
+  const [, setToastMsg] = useState<string | null>(null);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -24,9 +27,18 @@ export default function Header() {
       <h1 className="text-lg font-semibold truncate">
         ChoreSquad{householdName ? ` · ${householdName}` : ""}
       </h1>
-      {displayName && (
+
+      {userId && displayName && (
         <div className="flex items-center gap-3">
-          <span className="text-sm opacity-80">👋 {displayName}</span>
+          <ProfileEditor
+            userId={userId}
+            displayName={displayName}
+            setToastMsg={setToastMsg}
+            onSaved={() => {
+              // no-op; header will re-render via useDisplayName polling
+              // if you later add realtime, it'll update instantly
+            }}
+          />
           <button
             onClick={handleLogout}
             className="text-xs underline text-red-600"
