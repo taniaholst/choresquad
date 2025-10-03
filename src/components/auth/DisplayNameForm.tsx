@@ -1,32 +1,33 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { saveProfile } from "@/actions/profiles";
 
 export default function DisplayNameForm({
   userId,
   welcomeFlag,
-  onSaved,
+  setDisplayName,
+  setToastMsg,
 }: {
   userId: string;
   welcomeFlag?: string | null;
-  onSaved: (name: string) => void;
+  setDisplayName: (name: string) => void;
+  setToastMsg: (msg: string | null) => void;
 }) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idle" | "saving">("idle");
 
-  async function saveProfile() {
-    if (!userId || !name.trim()) return;
+  async function handleSaveProfile(name: string) {
+    if (!userId) return;
     setStatus("saving");
-    const { error } = await supabase.from("profiles").upsert({
-      id: userId,
-      display_name: name.trim(),
-    });
-    if (error) {
-      alert(error.message);
+    const ok = await saveProfile(userId, name);
+    if (!ok) {
+      setToastMsg("❌ Failed to save profile");
       setStatus("idle");
       return;
     }
-    onSaved(name.trim());
+    setDisplayName(name);
+    setToastMsg("🎉 Profile saved");
+    setStatus("idle");
   }
 
   return (
@@ -44,7 +45,7 @@ export default function DisplayNameForm({
         onChange={(e) => setName(e.target.value)}
       />
       <button
-        onClick={saveProfile}
+        onClick={() => handleSaveProfile(name)}
         className="border rounded px-4 py-2 w-full"
         disabled={!name.trim() || status === "saving"}
       >

@@ -9,6 +9,7 @@ import HouseholdList from "@/components/households/HouseholdList";
 import InviteModal from "@/components/households/InviteModal";
 import { useProfile } from "@/hooks/useProfile";
 import { useHouseholds } from "@/hooks/useHouseholds";
+import { createHouseholdWithName, renameHousehold } from "@/actions/households";
 
 export default function HomeClient() {
   const search = useSearchParams();
@@ -17,7 +18,6 @@ export default function HomeClient() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [inviteModal, setInviteModal] = useState<string | null>(null);
 
-  // watch for session
   useEffect(() => {
     const flag = search.get("welcome");
     if (flag) setWelcomeFlag(flag);
@@ -40,23 +40,27 @@ export default function HomeClient() {
   const { displayName, setDisplayName } = useProfile(userId);
   const { households, setHouseholds } = useHouseholds(userId);
 
-  async function createHousehold() {
+  async function handleCreateHousehold(hhName: string) {
     if (!userId) return;
-    const { data, error } = await supabase
-      .from("households")
-      .insert({ name: "My Household", owner_id: userId })
-      .select("*")
-      .single();
-    if (error) {
-      setToastMsg(`❌ ${error.message}`);
+    const newHousehold = await createHouseholdWithName(userId, hhName);
+    if (!newHousehold) {
+      setToastMsg("❌ Failed to create household");
       return;
     }
-    await supabase.from("household_members").insert({
-      household_id: data.id,
-      user_id: userId,
-    });
-    setHouseholds((prev) => [data, ...prev]);
+    setHouseholds((prev) => [newHousehold, ...prev]);
     setToastMsg("🎉 Household created");
+  }
+
+  async function handleRenameHousehold(id: string, newName: string) {
+    const ok = await renameHousehold(id, newName);
+    if (!ok) {
+      setToastMsg("❌ Failed to rename household");
+      return;
+    }
+    setHouseholds((prev) =>
+      prev.map((h) => (h.id === id ? { ...h, name: newName } : h)),
+    );
+    setToastMsg("✏️ Household renamed");
   }
 
   return (
@@ -73,17 +77,16 @@ export default function HomeClient() {
         <DisplayNameForm
           userId={userId}
           welcomeFlag={welcomeFlag}
-          onSaved={(n) => {
-            setDisplayName(n);
-            setToastMsg("🎉 Profile saved");
-          }}
+          setDisplayName={setDisplayName}
+          setToastMsg={setToastMsg}
         />
       ) : (
         <HouseholdList
           name={displayName}
           households={households}
-          onCreate={createHousehold}
+          onCreate={handleCreateHousehold}
           onInvite={(code) => setInviteModal(code)}
+          onRename={handleRenameHousehold}
         />
       )}
 
