@@ -24,6 +24,10 @@ export default function AuthTabs({
         >
           Sign in
         </button>
+        <p className="text-xs opacity-60">
+          Tip: if the magic link opens on a different device, just come back to
+          this page after clicking it—your session will be active here too.
+        </p>
       </div>
       {tab === "signup" ? (
         <SignupForm setToastMsg={setToastMsg} />
