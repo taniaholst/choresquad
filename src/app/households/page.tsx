@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { Toast } from "@/components/Toast";
 import type { Household } from "@/types/db";
 
 export default function HouseholdsPage() {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [name, setName] = useState("");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -14,26 +16,43 @@ export default function HouseholdsPage() {
         .from("households")
         .select("*")
         .order("created_at", { ascending: true });
-      if (!error && data) setHouseholds(data as Household[]);
+
+      if (error) console.error("Load households failed:", error);
+      setHouseholds((data ?? []) as Household[]);
     })();
   }, []);
 
+  function copyInvite(code: string) {
+    navigator.clipboard.writeText(code);
+    setToastMsg("✅ Invite code copied!");
+  }
+
   async function createHousehold() {
     if (!name.trim()) return;
-    const invite_code = Math.random().toString(36).slice(2, 8).toUpperCase();
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("households").insert({
-      name,
-      invite_code,
-      owner_id: user.id,
-    });
-    if (error) return;
+    if (!user) {
+      alert("Please sign in first");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("households")
+      .insert({ name, owner_id: user.id }) // invite_code now generated server-side
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Insert household failed:", error);
+      alert(error.message);
+      return;
+    }
+
+    // Clear input and show the new household immediately
     setName("");
-    const { data } = await supabase.from("households").select("*");
-    setHouseholds((data ?? []) as Household[]);
+    setHouseholds((prev) => (data ? [data, ...prev] : prev));
   }
 
   return (
@@ -61,7 +80,14 @@ export default function HouseholdsPage() {
             <div>
               <div className="font-medium">{h.name}</div>
               <div className="text-xs opacity-70">
-                Invite code: {h.invite_code}
+                Invite code: <code>{h.invite_code}</code>
+                <button
+                  className="ml-2 underline text-xs"
+                  onClick={() => copyInvite(h.invite_code)}
+                  title="Copy invite code"
+                >
+                  Copy
+                </button>
               </div>
             </div>
             <Link href={`/households/${h.id}`} className="underline">
@@ -70,6 +96,9 @@ export default function HouseholdsPage() {
           </li>
         ))}
       </ul>
+      {toastMsg && (
+        <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
+      )}
     </main>
   );
 }
