@@ -14,7 +14,7 @@ export type Profile = {
 
 export type HouseholdMemberRow = {
   user_id: string;
-  profiles: Profile | null;
+  profiles: Profile[] | Profile | null;
 };
 
 export type ChoreAssignee = { user_id: string };

@@ -3,7 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { RRule, RRuleSet, Weekday } from "rrule";
 import { set as setTime } from "date-fns";
-import type { Chore, ChoreOccurrence, Profile, Recurrence } from "@/types/db";
+import type {
+  Chore,
+  ChoreOccurrence,
+  Profile,
+  Recurrence,
+  HouseholdMemberRow,
+} from "@/types/db";
 import { Toast } from "@/components/Toast";
 
 const WDAY: Record<number, Weekday> = {
@@ -21,7 +27,7 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
 
   const [members, setMembers] = useState<Profile[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
-
+  const [userId, setUserId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [categoryEmoji, setCategoryEmoji] = useState("🧹");
   const [dueTime, setDueTime] = useState("18:00");
@@ -41,8 +47,10 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
       .eq("household_id", householdId)
       .order("added_at", { ascending: true });
 
-    const mem = ((m ?? []) as { profiles: Profile | null }[])
-      .map((row) => row.profiles)
+    const mem: Profile[] = ((m ?? []) as HouseholdMemberRow[])
+      .map((row) =>
+        Array.isArray(row.profiles) ? row.profiles[0] : row.profiles,
+      )
       .filter((p): p is Profile => Boolean(p));
     setMembers(mem);
 
@@ -68,6 +76,26 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        setUserId(null);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   function toggleWeekday(i: number) {
@@ -346,7 +374,7 @@ export default function HouseholdPage({ params }: { params: { id: string } }) {
                           .update({
                             status: "done",
                             completed_at: new Date().toISOString(),
-                            completed_by: userId, // make sure you store current userId in state
+                            completed_by: userId,
                           })
                           .eq("id", o.id);
                         if (!error) {
