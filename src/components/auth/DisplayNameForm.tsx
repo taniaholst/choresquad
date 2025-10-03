@@ -19,9 +19,11 @@ export default function DisplayNameForm({
   async function handleSaveProfile() {
     if (!userId || !name.trim()) return;
     setStatus("saving");
-    const ok = await saveProfile(userId, name);
-    if (!ok) {
-      setToastMsg("❌ Failed to save profile");
+    const res = await saveProfile(userId, name);
+    if (!res.ok) {
+      setToastMsg(
+        `❌ Failed to save profile${res.error ? `: ${res.error}` : ""}`,
+      );
       setStatus("idle");
       return;
     }
