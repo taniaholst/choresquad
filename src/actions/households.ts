@@ -21,13 +21,21 @@ export async function createHouseholdWithName(
     .select("*")
     .single();
 
-  if (hhErr || !hh) {
-    // common RLS hint
-    const msg = hhErr?.message?.includes("row-level security")
-      ? "Creation blocked by RLS. Ensure INSERT policy: WITH CHECK (owner_id = auth.uid())."
-      : hhErr?.message || "Failed to create household.";
-    return { ok: false, error: msg };
+  if (hhErr) {
+    console.error("Household insert error:", {
+      code: hhErr.code,
+      message: hhErr.message,
+      details: hhErr.details,
+      hint: hhErr.hint,
+    });
+    console.log(`❌ ${hhErr.code ?? ""} ${hhErr.message}`.trim());
   }
+
+  await supabase
+    .from("households")
+    .insert([{ name: trimmed }])
+    .select("*")
+    .single();
 
   // 2) Add creator as member (RLS must allow INSERT with user_id = auth.uid())
   const { error: memErr } = await supabase
