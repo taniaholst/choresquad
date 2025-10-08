@@ -11,20 +11,25 @@ export default function HouseholdList({
   name,
   households,
   onCreate,
-  onInvite,
   onRename,
+  onJoin,
 }: {
   name: string;
   households: Household[];
   onCreate: (name: string) => void | Promise<void>;
   onInvite: (code: string) => void;
   onRename: (id: string, name: string) => void | Promise<void>;
+  onJoin: (inviteCode: string) => void | Promise<void>;
 }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [savingId, setSavingId] = useState<string | "create" | null>(null);
+  const [savingId, setSavingId] = useState<string | "create" | "join" | null>(
+    null,
+  );
+  const [joining, setJoining] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -46,8 +51,18 @@ export default function HouseholdList({
     setSavingId(null);
   }
 
+  async function handleJoin() {
+    const code = inviteCode.trim().toUpperCase();
+    if (!code) return;
+    setSavingId("join");
+    await onJoin(code);
+    setInviteCode("");
+    setJoining(false);
+    setSavingId(null);
+  }
+
   const CreateBlock = (
-    <div className="border rounded p-3 space-y-2">
+    <>
       {!creating ? (
         <button
           onClick={() => setCreating(true)}
@@ -83,7 +98,48 @@ export default function HouseholdList({
           </div>
         </div>
       )}
-    </div>
+    </>
+  );
+
+  const JoinBlock = (
+    <>
+      {!joining ? (
+        <button
+          onClick={() => setJoining(true)}
+          className="border rounded px-4 py-2 w-full"
+        >
+          Join a household
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <input
+            className="border rounded px-3 py-2 w-full"
+            placeholder="Enter invite code (e.g., 7BA9E8B6)"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            autoCapitalize="characters"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleJoin}
+              disabled={!inviteCode.trim() || savingId === "join"}
+              className="border rounded px-4 py-2 flex-1"
+            >
+              {savingId === "join" ? "Joining…" : "Join"}
+            </button>
+            <button
+              onClick={() => {
+                setJoining(false);
+                setInviteCode("");
+              }}
+              className="border rounded px-4 py-2 flex-1"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 
   if (households.length === 0) {
@@ -92,7 +148,10 @@ export default function HouseholdList({
         <div className="text-sm">
           👋 {name}, you don’t have a household yet.
         </div>
-        {CreateBlock}
+        <div className="border rounded p-3 space-y-2">
+          {CreateBlock}
+          {JoinBlock}
+        </div>
       </div>
     );
   }
@@ -168,7 +227,10 @@ export default function HouseholdList({
           );
         })}
       </ul>
-      {CreateBlock}
+      <div className="border rounded p-3 space-y-2">
+        {CreateBlock}
+        {JoinBlock}
+      </div>
     </div>
   );
 }
