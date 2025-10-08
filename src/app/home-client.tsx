@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Toast } from "@/components/Toast";
 import HouseholdList from "@/components/households/HouseholdList";
-import InviteModal from "@/components/households/InviteModal";
 import { useHouseholds } from "@/hooks/useHouseholds";
 import { createHouseholdWithName, renameHousehold } from "@/actions/households";
 import AuthTabs from "@/components/auth/AuthTabs";
@@ -119,14 +118,6 @@ export default function HomeClient() {
 
       {toastMsg && (
         <Toast message={toastMsg} onClose={() => setToastMsg(null)} />
-      )}
-
-      {inviteModal && (
-        <InviteModal
-          code={inviteModal}
-          onClose={() => setInviteModal(null)}
-          onCopied={() => setToastMsg("📋 Invite code copied")}
-        />
       )}
     </main>
   );

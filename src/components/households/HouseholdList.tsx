@@ -147,13 +147,7 @@ export default function HouseholdList({
                 Invite code: <code>{h.invite_code}</code>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onInvite(h.invite_code)}
-                  className="border rounded px-3 py-1 text-sm"
-                >
-                  Invite people
-                </button>
+              <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => {
                     setEditingId(h.id);
@@ -161,7 +155,7 @@ export default function HouseholdList({
                   }}
                   className="border rounded px-3 py-1 text-sm"
                 >
-                  Edit name
+                  Edit household name
                 </button>
                 <button
                   onClick={() => location.assign(`/households/${h.id}`)}
