@@ -14,9 +14,7 @@ export default function HomeClient() {
   const search = useSearchParams();
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [welcomeFlag, setWelcomeFlag] = useState<string | null>(null); // kept if you still show it elsewhere
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [inviteModal, setInviteModal] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -31,17 +29,13 @@ export default function HomeClient() {
   }, []);
 
   // profile flags live in the hook
-  const { displayName, setDisplayName, hasPassword, loading, mutate } =
-    useProfile(userId);
+  const { displayName, hasPassword, loading, mutate } = useProfile(userId);
 
   // households
   const { households, setHouseholds } = useHouseholds(userId);
 
   // bootstrap session + auth listener
   useEffect(() => {
-    const flag = search.get("welcome");
-    if (flag) setWelcomeFlag(flag);
-
     (async () => {
       const {
         data: { user },
@@ -86,6 +80,47 @@ export default function HomeClient() {
     setToastMsg("✏️ Household renamed");
   }
 
+  async function handleJoinHousehold(code: string) {
+    if (!userId) return;
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) {
+      setToastMsg("❌ Enter an invite code");
+      return;
+    }
+
+    // Try to find household by invite code (may be blocked by RLS; see note below)
+    // Join via secure RPC (does lookup + membership server-side)
+    const { data, error } = await supabase.rpc("join_household", {
+      p_code: normalized,
+    });
+
+    if (error || !data?.length) {
+      setToastMsg(`❌ ${error?.message ?? "Invalid invite code"}`);
+      return;
+    }
+
+    const hh = data[0] as { id: string; name: string; invite_code: string };
+
+    // Avoid duplicates if already in local state
+    if (households.some((h) => h.id === hh.id)) {
+      setToastMsg("ℹ️ You're already a member of this household");
+      return;
+    }
+
+    // Insert membership for current user
+    const { error: mErr } = await supabase
+      .from("household_members")
+      .insert([{ household_id: hh.id, user_id: userId }]);
+
+    if (mErr) {
+      setToastMsg(`❌ Failed to join: ${mErr.message}`);
+      return;
+    }
+
+    setHouseholds((prev) => [hh, ...prev]);
+    setToastMsg("🎉 Joined household");
+  }
+
   return (
     <main className="mx-auto max-w-md p-6 space-y-6">
       <h1 className="text-2xl font-semibold">ChoreSquad</h1>
@@ -111,8 +146,8 @@ export default function HomeClient() {
           name={displayName}
           households={households}
           onCreate={handleCreateHousehold}
-          onInvite={(code) => setInviteModal(code)}
           onRename={handleRenameHousehold}
+          onJoin={handleJoinHousehold}
         />
       )}
 

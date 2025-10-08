@@ -17,7 +17,6 @@ export default function HouseholdList({
   name: string;
   households: Household[];
   onCreate: (name: string) => void | Promise<void>;
-  onInvite: (code: string) => void;
   onRename: (id: string, name: string) => void | Promise<void>;
   onJoin: (inviteCode: string) => void | Promise<void>;
 }) {
